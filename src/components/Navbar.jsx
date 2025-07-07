@@ -1,7 +1,10 @@
-import React from 'react';
+import React, { useContext } from 'react';
 import { Link } from 'react-router-dom';
+import { UserContext } from '../context/userAuthContext';
 
 function Navbar() {
+  const { user } = useContext(UserContext); // Get user from context
+
   return (
     <nav className="bg-white shadow-md py-4">
       <div className="container mx-auto flex justify-between items-center px-6">
@@ -12,7 +15,11 @@ function Navbar() {
           <Link to="/" className="text-gray-800 hover:text-blue-600">Home</Link>
           <Link to="/resources" className="text-gray-800 hover:text-blue-600">Resources</Link>
           <Link to="/guides" className="text-gray-800 hover:text-blue-600">Guides</Link>
-          <Link to="/profile">Profile</Link>
+          {user ? (
+            <Link to="/profile" className="text-gray-800 hover:text-blue-600">Profile</Link>
+          ) : (
+            <Link to="/auth" className="text-gray-800 hover:text-blue-600">Login / Sign Up</Link>
+          )}
         </div>
       </div>
     </nav>
