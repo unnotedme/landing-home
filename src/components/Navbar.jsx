@@ -12,6 +12,7 @@ function Navbar() {
           <Link to="/" className="text-gray-800 hover:text-blue-600">Home</Link>
           <Link to="/resources" className="text-gray-800 hover:text-blue-600">Resources</Link>
           <Link to="/guides" className="text-gray-800 hover:text-blue-600">Guides</Link>
+          <Link to="/profile">Profile</Link>
         </div>
       </div>
     </nav>

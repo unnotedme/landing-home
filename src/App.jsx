@@ -2,6 +2,7 @@ import { Routes, Route } from 'react-router-dom';
 import Home from './pages/Home';
 import Resources from './pages/Resources';
 import Guides from './pages/Guides';
+import Profile from './pages/Profile';
 import Navbar from './components/Navbar';
 import Footer from './components/Footer';
 
@@ -14,6 +15,7 @@ function App() {
           <Route path="/" element={<Home />} />
           <Route path="/resources" element={<Resources />} />
           <Route path="/guides" element={<Guides />} />
+          <Route path="/profile" element={<Profile />} />
           {/* Add more routes as needed */}
         </Routes>
       </main>
