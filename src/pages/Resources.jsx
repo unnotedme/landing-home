@@ -1,133 +1,135 @@
-import React, { useState } from 'react';
-import { embeddedResources } from '../data/resourcesWithEmbeddings';
+// Resources.jsx
+import React, { useState, useEffect } from 'react';
+import Select from 'react-select';
 
-function Resources() {
-  const [search, setSearch] = useState('');
-  const [categoryFilter, setCategoryFilter] = useState('');
-  const [locationFilter, setLocationFilter] = useState('');
-  const [page, setPage] = useState(1);
-  const resultsPerPage = 6;
+const categoryOptions = [
+  { value: 'Housing', label: 'Housing' },
+  { value: 'Legal', label: 'Legal' },
+  { value: 'Employment', label: 'Employment' },
+  { value: 'Health', label: 'Health' },
+  // Add more categories as needed
+];
 
-  const categories = [...new Set(embeddedResources.map((res) => res.category))];
-  const locations = [...new Set(embeddedResources.map((res) => res.location))];
+const resourcesData = [
+  // Sample data structure
+  {
+    id: 1,
+    title: 'Affordable Housing Nova Scotia',
+    category: 'Housing',
+    location: 'Halifax, NS',
+  },
+  // Add more resource objects
+];
 
-  const handleSearch = async (e) => {
-    const val = e.target.value;
-    setSearch(val);
+export default function Resources() {
+  const [filteredResources, setFilteredResources] = useState(resourcesData);
+  const [selectedCategories, setSelectedCategories] = useState([]);
+  const [locationQuery, setLocationQuery] = useState('');
+  const [currentPage, setCurrentPage] = useState(1);
+  const resourcesPerPage = 6;
+
+  useEffect(() => {
+    let filtered = [...resourcesData];
+
+    if (locationQuery) {
+      filtered = filtered.filter(resource =>
+        resource.location.toLowerCase().includes(locationQuery.toLowerCase())
+      );
+    }
+
+    if (selectedCategories.length > 0) {
+      const values = selectedCategories.map(c => c.value);
+      filtered = filtered.filter(resource =>
+        values.includes(resource.category)
+      );
+    }
+
+    setFilteredResources(filtered);
+    setCurrentPage(1); // reset to first page when filters change
+  }, [locationQuery, selectedCategories]);
+
+  const handleCategoryChange = (selected) => {
+    setSelectedCategories(selected || []);
   };
 
-  const handleCategoryFilter = (category) => {
-    setCategoryFilter(category);
+  const handleLocationChange = (e) => {
+    setLocationQuery(e.target.value);
   };
 
-  const handleLocationFilter = (location) => {
-    setLocationFilter(location);
+  const indexOfLastResource = currentPage * resourcesPerPage;
+  const indexOfFirstResource = indexOfLastResource - resourcesPerPage;
+  const currentResources = filteredResources.slice(indexOfFirstResource, indexOfLastResource);
+
+  const totalPages = Math.ceil(filteredResources.length / resourcesPerPage);
+
+  const goToPreviousPage = () => {
+    if (currentPage > 1) {
+      setCurrentPage(prev => prev - 1);
+    }
   };
 
-  const filteredResults = embeddedResources.filter(
-    (resource) =>
-      (categoryFilter ? resource.category === categoryFilter : true) &&
-      (locationFilter ? resource.location === locationFilter : true) &&
-      (search
-        ? resource.title.toLowerCase().includes(search.toLowerCase()) ||
-          resource.description.toLowerCase().includes(search.toLowerCase())
-        : true)
-  );
-
-  const totalPages = Math.ceil(filteredResults.length / resultsPerPage);
-  const displayedResults = filteredResults.slice(
-    (page - 1) * resultsPerPage,
-    page * resultsPerPage
-  );
+  const goToNextPage = () => {
+    if (currentPage < totalPages) {
+      setCurrentPage(prev => prev + 1);
+    }
+  };
 
   return (
-    <div className="max-w-7xl mx-auto p-6 flex gap-8">
-      {/* Sidebar Filters */}
-      <div className="w-64 bg-white shadow-md rounded-lg p-6">
-        <h3 className="text-lg font-semibold text-blue-700">Filters</h3>
+    <div className="px-6 py-10 max-w-4xl mx-auto">
+      <h1 className="text-3xl font-bold mb-6">Community Resources</h1>
 
-        <div className="mt-4">
-          <h4 className="font-medium">Category</h4>
-          <div className="space-y-2">
-            {categories.map((category) => (
-              <button
-                key={category}
-                onClick={() => handleCategoryFilter(category)}
-                className="block w-full text-left text-gray-600 hover:text-blue-600"
-              >
-                {category}
-              </button>
-            ))}
-          </div>
-        </div>
-
-        <div className="mt-4">
-          <h4 className="font-medium">Location</h4>
-          <div className="space-y-2">
-            {locations.map((location) => (
-              <button
-                key={location}
-                onClick={() => handleLocationFilter(location)}
-                className="block w-full text-left text-gray-600 hover:text-blue-600"
-              >
-                {location}
-              </button>
-            ))}
-          </div>
-        </div>
-      </div>
-
-      {/* Resources Display */}
-      <div className="flex-1">
-        <h2 className="text-3xl font-semibold text-blue-700 mb-8">Browse Resources</h2>
+      <div className="mb-6 flex flex-col gap-4 md:flex-row md:gap-6">
+        <Select
+          isMulti
+          options={categoryOptions}
+          value={selectedCategories}
+          onChange={handleCategoryChange}
+          placeholder="Filter by category..."
+          className="w-full md:w-1/2"
+        />
 
         <input
           type="text"
-          placeholder="Search for help (e.g. housing, health, refugee)..."
-          value={search}
-          onChange={handleSearch}
-          className="p-4 border rounded-lg w-full mb-8 shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-400"
+          placeholder="Search by city or province..."
+          value={locationQuery}
+          onChange={handleLocationChange}
+          className="w-full md:w-1/2 border border-gray-300 rounded p-2"
         />
+      </div>
 
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-          {displayedResults.map((resource) => (
-            <div
-              key={resource.id}
-              className="bg-white shadow-lg rounded-lg hover:shadow-xl transition-shadow duration-200 ease-in-out p-6"
-            >
-              <h3 className="text-xl font-semibold text-blue-700">{resource.title}</h3>
-              <p className="text-gray-600 text-sm">{resource.location}</p>
-              <p className="text-gray-800 mt-2">{resource.description}</p>
-              <div className="mt-4">
-                <span className="inline-block bg-blue-200 text-blue-800 text-xs font-medium px-3 py-1 rounded-full">
-                  {resource.category}
-                </span>
-              </div>
+      <div className="grid gap-6">
+        {currentResources.length > 0 ? (
+          currentResources.map((resource) => (
+            <div key={resource.id} className="border p-4 rounded shadow-sm">
+              <h2 className="text-xl font-semibold">{resource.title}</h2>
+              <p className="text-sm text-gray-600">{resource.category} | {resource.location}</p>
             </div>
-          ))}
-        </div>
+          ))
+        ) : (
+          <p>No resources found.</p>
+        )}
+      </div>
 
-        {/* Pagination */}
-        <div className="mt-8 flex justify-center gap-4">
-          <button
-            onClick={() => setPage(page > 1 ? page - 1 : 1)}
-            className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
-          >
-            Previous
-          </button>
-          <span className="flex items-center text-lg font-semibold">
-            Page {page} of {totalPages}
-          </span>
-          <button
-            onClick={() => setPage(page < totalPages ? page + 1 : totalPages)}
-            className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
-          >
-            Next
-          </button>
-        </div>
+      {/* Pagination */}
+      <div className="mt-8 flex items-center justify-center gap-4">
+        <button
+          onClick={goToPreviousPage}
+          disabled={currentPage === 1}
+          className={`px-4 py-2 rounded text-white ${currentPage === 1 ? 'bg-gray-400 cursor-not-allowed' : 'bg-indigo-600 hover:bg-indigo-700'}`}
+        >
+          Previous
+        </button>
+
+        <span className="font-medium">Page {currentPage} of {totalPages}</span>
+
+        <button
+          onClick={goToNextPage}
+          disabled={currentPage >= totalPages}
+          className={`px-4 py-2 rounded text-white ${currentPage >= totalPages ? 'bg-gray-400 cursor-not-allowed' : 'bg-indigo-600 hover:bg-indigo-700'}`}
+        >
+          Next
+        </button>
       </div>
     </div>
   );
 }
-
-export default Resources;
