@@ -1,164 +1,121 @@
+// src/components/GuideDetail.jsx
 import React, { useState, useEffect, useContext } from 'react';
 import { useParams } from 'react-router-dom';
-import { UserContext } from '../context/userAuthContext'; // Corrected import path
-import guidesData from '../data/guides.json';
+import { UserContext } from '../context/UserContext'; 
 import { db } from '../firebase';
-import { collection, query, orderBy, onSnapshot, doc } from 'firebase/firestore';
+import { doc, getDoc, updateDoc, arrayUnion } from 'firebase/firestore';
 
-export default function GuideDetails() {
-  const { id } = useParams();
-  // The 'username' variable is used when calling addComment.
-  // The linter sometimes doesn't trace usage through function calls passed via context.
-  const { user, addComment, addOrUpdateRating } = useContext(UserContext);
-  const guide = guidesData.find(g => String(g.id) === id);
+export default function GuideDetail() {
+  const { user } = useContext(UserContext);
+  const { guideId } = useParams(); // Get guideId from URL parameter
 
+  const [guide, setGuide] = useState(null);
   const [comments, setComments] = useState([]);
   const [newComment, setNewComment] = useState('');
-  const [currentRating, setCurrentRating] = useState(0);
-  const [averageRating, setAverageRating] = useState(null);
-  // 'userHasRated' is now explicitly used in the JSX below to display a message.
-  const [userHasRated, setUserHasRated] = useState(false);
+  const [likes, setLikes] = useState([]);
 
+  // Fetch guide details from Firestore
   useEffect(() => {
-    if (!guide) return;
+    const fetchGuide = async () => {
+      const docRef = doc(db, 'guides', guideId);
+      const docSnap = await getDoc(docRef);
 
-    // Fetch comments
-    const commentsQuery = query(
-      collection(db, 'guides', String(guide.id), 'comments'),
-      orderBy('createdAt', 'desc')
-    );
-    const unsubscribeComments = onSnapshot(commentsQuery, (snapshot) => {
-      const commentsList = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
-      setComments(commentsList);
-    });
-
-    // Fetch rating data
-    const guideDocRef = doc(db, 'guides', String(guide.id));
-    const unsubscribeRatings = onSnapshot(guideDocRef, (docSnap) => {
       if (docSnap.exists()) {
-        const data = docSnap.data();
-        setAverageRating(data.averageRating);
-
-        if (user && data.ratings && data.ratings[user.uid]) {
-            setCurrentRating(data.ratings[user.uid]);
-            setUserHasRated(true); // Set the state here
-        } else {
-            setCurrentRating(0);
-            setUserHasRated(false); // Set the state here
-        }
+        setGuide(docSnap.data());
+        setLikes(docSnap.data().likes || []);
+        setComments(docSnap.data().comments || []);
       } else {
-        setAverageRating(null);
-        setCurrentRating(0);
-        setUserHasRated(false); // Set the state here
+        console.log('No such guide!');
       }
+    };
+
+    fetchGuide();
+  }, [guideId]);
+
+  const handleCommentSubmit = async () => {
+    if (newComment.trim() === '') return;
+
+    const commentData = {
+      userId: user?.uid,
+      comment: newComment,
+      timestamp: new Date(),
+    };
+
+    // Add comment to Firestore
+    const guideRef = doc(db, 'guides', guideId);
+    await updateDoc(guideRef, {
+      comments: arrayUnion(commentData),
     });
 
+    setComments((prevComments) => [...prevComments, commentData]);
+    setNewComment('');
+  };
 
-    return () => {
-      unsubscribeComments();
-      unsubscribeRatings();
-    };
-  }, [id, guide, user]);
+  const handleLike = async () => {
+    if (!user) return;
 
-  // Optional: A console log to explicitly "read" username for the linter, though generally not needed in production.
-  // console.log("Current user's username for GuideDetails:", username);
-
-
-  if (!guide) {
-    return <div className="text-center py-10">Guide not found.</div>;
-  }
-
-  const handleCommentSubmit = async (e) => {
-    e.preventDefault();
-    if (newComment.trim() === '') return;
-    try {
-      // 'username' is passed to addComment here.
-      await addComment(guide.id, newComment);
-      setNewComment('');
-    } catch (error) {
-      console.error("Failed to add comment:", error);
+    const guideRef = doc(db, 'guides', guideId);
+    if (likes.includes(user.uid)) {
+      await updateDoc(guideRef, {
+        likes: likes.filter((uid) => uid !== user.uid),
+      });
+      setLikes((prevLikes) => prevLikes.filter((uid) => uid !== user.uid));
+    } else {
+      await updateDoc(guideRef, {
+        likes: arrayUnion(user.uid),
+      });
+      setLikes((prevLikes) => [...prevLikes, user.uid]);
     }
   };
 
-  const handleRatingClick = async (rating) => {
-    if (!user) {
-        alert("Please log in to rate.");
-        return;
-    }
-    try {
-      await addOrUpdateRating(guide.id, rating);
-    } catch (error) {
-      console.error("Failed to add/update rating:", error);
-    }
-  };
+  if (!guide) return <div>Loading...</div>;
 
   return (
-    <div className="max-w-3xl mx-auto px-4 py-10">
+    <div className="max-w-4xl mx-auto p-6">
       <h1 className="text-3xl font-bold mb-4">{guide.title}</h1>
-      <p className="text-gray-600 text-sm mb-4">{guide.category}</p>
-      <p className="text-gray-700 mb-6">{guide.description}</p>
-
-      {/* Rating Section */}
-      <div className="mb-8">
-        <h3 className="text-xl font-semibold mb-2">Rate this Guide</h3>
-        <div className="flex items-center space-x-2 mb-2">
-          {[1, 2, 3, 4, 5].map((star) => (
-            <button
-              key={star}
-              onClick={() => handleRatingClick(star)}
-              className={`text-3xl ${currentRating >= star ? 'text-yellow-500' : 'text-gray-300'}`}
-              disabled={!user}
-            >
-              ★
-            </button>
-          ))}
-          {averageRating !== null && (
-            <span className="ml-4 text-gray-700">Average: {averageRating.toFixed(1)} / 5</span>
-          )}
-        </div>
-        {!user && <p className="text-sm text-gray-500">Log in to rate this guide.</p>}
-        {/* 'userHasRated' is explicitly used here */}
-        {user && userHasRated && currentRating > 0 && (
-            <p className="text-sm text-gray-600 mt-2">You rated this guide: {currentRating} stars.</p>
-        )}
+      <p className="text-lg text-gray-700 mb-4">Source: {guide.source}</p>
+      <div className="bg-gray-100 p-4 rounded-lg mb-4">
+        <p>{guide.content}</p>
       </div>
 
-      {/* Comments Section */}
-      <div className="mb-8">
-        <h3 className="text-xl font-semibold mb-4">Comments</h3>
-        {user ? (
-          <form onSubmit={handleCommentSubmit} className="mb-6">
+      <div className="my-6">
+        <button
+          onClick={handleLike}
+          className={`px-4 py-2 rounded ${likes.includes(user?.uid) ? 'bg-blue-500' : 'bg-gray-300'} text-white`}
+        >
+          {likes.includes(user?.uid) ? 'Liked' : 'Like'}
+        </button>
+        <p>{likes.length} {likes.length === 1 ? 'Like' : 'Likes'}</p>
+      </div>
+
+      <div>
+        <h2 className="text-xl font-semibold mb-4">Comments</h2>
+
+        {comments.length === 0 && <p>No comments yet.</p>}
+
+        {comments.map((comment, index) => (
+          <div key={index} className="mb-4 p-4 border-b">
+            <p><strong>User {comment.userId}</strong> says:</p>
+            <p>{comment.comment}</p>
+          </div>
+        ))}
+
+        {user && (
+          <div className="mt-4">
             <textarea
               value={newComment}
               onChange={(e) => setNewComment(e.target.value)}
-              placeholder="Add your comment..."
-              rows="3"
-              className="w-full p-2 border rounded mb-2 focus:outline-none focus:ring-2 focus:ring-indigo-500"
-            ></textarea>
+              rows="4"
+              placeholder="Write a comment..."
+              className="w-full p-2 border rounded-lg"
+            />
             <button
-              type="submit"
-              className="bg-indigo-600 text-white px-4 py-2 rounded hover:bg-indigo-700"
+              onClick={handleCommentSubmit} // Call the function on comment submit
+              className="mt-2 px-4 py-2 bg-blue-500 text-white rounded-lg"
             >
               Post Comment
             </button>
-          </form>
-        ) : (
-          <p className="text-gray-600 mb-4">Log in to add a comment.</p>
-        )}
-
-        {comments.length > 0 ? (
-          <ul className="space-y-4">
-            {comments.map((comment) => (
-              <li key={comment.id} className="border p-3 rounded bg-gray-50">
-                <p className="font-semibold text-gray-800">{comment.username} <span className="text-xs text-gray-500 ml-2">
-                    {comment.createdAt?.toDate().toLocaleDateString()}
-                </span></p>
-                <p className="text-gray-700 text-sm">{comment.comment}</p>
-              </li>
-            ))}
-          </ul>
-        ) : (
-          <p className="text-gray-600">No comments yet. Be the first to comment!</p>
+          </div>
         )}
       </div>
     </div>
