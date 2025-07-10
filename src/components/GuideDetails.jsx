@@ -1,7 +1,7 @@
 // src/components/GuideDetail.jsx
 import React, { useState, useEffect, useContext } from 'react';
 import { useParams } from 'react-router-dom';
-import { UserContext } from '../context/UserContext'; 
+import { UserContext } from '../context/UserAuthContext'; 
 import { db } from '../firebase';
 import { doc, getDoc, updateDoc, arrayUnion } from 'firebase/firestore';
 
